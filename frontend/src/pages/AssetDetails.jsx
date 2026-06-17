@@ -770,7 +770,7 @@ const AssetDetails = () => {
                           <h4 style={{ fontSize: '0.95rem', margin: '4px 0' }}>{doc.fileName}</h4>
                         </div>
                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                          <a href={doc.fileUrl.startsWith('http') ? doc.fileUrl : `http://localhost:5000${doc.fileUrl}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                          <a href={doc.fileUrl.startsWith('http') ? doc.fileUrl : `${api.defaults.baseURL.replace('/api', '')}${doc.fileUrl}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
                             View ↗
                           </a>
                           <button onClick={() => handleDeleteDocument(doc._id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '1.1rem' }}>🗑️</button>

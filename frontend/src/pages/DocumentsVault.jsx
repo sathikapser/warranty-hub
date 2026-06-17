@@ -125,7 +125,7 @@ const DocumentsVault = () => {
                 marginTop: '15px'
               }}>
                 <a 
-                  href={doc.fileUrl.startsWith('http') ? doc.fileUrl : `http://localhost:5000${doc.fileUrl}`} 
+                  href={doc.fileUrl.startsWith('http') ? doc.fileUrl : `${api.defaults.baseURL.replace('/api', '')}${doc.fileUrl}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="btn btn-secondary" 
