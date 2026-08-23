@@ -5,7 +5,9 @@ const Service = require('../models/Service');
 const Insurance = require('../models/Insurance');
 const AMC = require('../models/AMC');
 const Asset = require('../models/Asset');
+const ActivityLog = require('../models/ActivityLog');
 const { protect } = require('../middleware/auth');
+const { emitWorkspaceEvent, broadcastActivity } = require('../utils/socket');
 
 // Middleware to verify user owns the asset before editing trackers
 const verifyAssetOwnership = async (req, res, next) => {
@@ -18,8 +20,6 @@ const verifyAssetOwnership = async (req, res, next) => {
     if (!asset) {
       return res.status(404).json({ message: 'Asset not found' });
     }
-    // Simple verification (allowing family members as well)
-    // For simplicity, we skip full lookup here and assume routing access is safe if assetId exists
     req.asset = asset;
     next();
   } catch (error) {
@@ -43,7 +43,7 @@ router.get('/warranties/:assetId', protect, async (req, res) => {
 
 // Create/Update warranty for an asset
 router.post('/warranties', protect, verifyAssetOwnership, async (req, res) => {
-  const { assetId, startDate, endDate, isExtended, provider } = req.body;
+  const { assetId, startDate, endDate, isExtended, provider, policyNumber, claimPhone, claimEmail, coverageTerms } = req.body;
   try {
     let warranty = await Warranty.findOne({ assetId });
 
@@ -65,6 +65,10 @@ router.post('/warranties', protect, verifyAssetOwnership, async (req, res) => {
       warranty.endDate = endDate;
       warranty.isExtended = isExtended || false;
       warranty.provider = provider || warranty.provider;
+      warranty.policyNumber = policyNumber !== undefined ? policyNumber : warranty.policyNumber;
+      warranty.claimPhone = claimPhone !== undefined ? claimPhone : warranty.claimPhone;
+      warranty.claimEmail = claimEmail !== undefined ? claimEmail : warranty.claimEmail;
+      warranty.coverageTerms = coverageTerms || warranty.coverageTerms;
       warranty.status = status;
       await warranty.save();
     } else {
@@ -74,9 +78,31 @@ router.post('/warranties', protect, verifyAssetOwnership, async (req, res) => {
         endDate,
         isExtended,
         provider,
+        policyNumber,
+        claimPhone,
+        claimEmail,
+        coverageTerms,
         status
       });
     }
+
+    const workspaceId = req.user.familyWorkspaceOwnerId || req.user._id;
+    emitWorkspaceEvent(workspaceId.toString(), 'warranty_updated', {
+      warranty,
+      assetName: req.asset.assetName
+    });
+
+    const activity = await ActivityLog.create({
+      workspaceId,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: 'warranty_updated',
+      title: `Warranty Updated for ${req.asset.brand} ${req.asset.assetName}`,
+      details: `Status: ${status.toUpperCase()} • Valid until ${new Date(endDate).toLocaleDateString()}`,
+      assetId: req.asset._id
+    });
+    broadcastActivity(workspaceId.toString(), activity);
+
     res.json(warranty);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -107,9 +133,22 @@ router.post('/services', protect, verifyAssetOwnership, async (req, res) => {
       nextServiceDate,
       frequencyMonths,
       provider,
-      cost,
+      cost: Number(cost) || 0,
       details
     });
+
+    const workspaceId = req.user.familyWorkspaceOwnerId || req.user._id;
+    const activity = await ActivityLog.create({
+      workspaceId,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: 'service_created',
+      title: `Logged Service for ${req.asset.brand} ${req.asset.assetName}`,
+      details: `${provider || 'Technician'} • ₹${(Number(cost) || 0).toLocaleString()} • ${details || 'Routine care'}`,
+      assetId: req.asset._id
+    });
+    broadcastActivity(workspaceId.toString(), activity);
+
     res.status(201).json(service);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -151,7 +190,7 @@ router.post('/insurance', protect, verifyAssetOwnership, async (req, res) => {
       insurance.provider = provider;
       insurance.policyNumber = policyNumber;
       insurance.expiryDate = expiryDate;
-      insurance.cost = cost;
+      insurance.cost = Number(cost) || 0;
       await insurance.save();
     } else {
       insurance = await Insurance.create({
@@ -159,7 +198,7 @@ router.post('/insurance', protect, verifyAssetOwnership, async (req, res) => {
         provider,
         policyNumber,
         expiryDate,
-        cost
+        cost: Number(cost) || 0
       });
     }
     res.json(insurance);
@@ -191,7 +230,7 @@ router.post('/amc', protect, verifyAssetOwnership, async (req, res) => {
       amc.provider = provider;
       amc.startDate = startDate;
       amc.endDate = endDate;
-      amc.cost = cost;
+      amc.cost = Number(cost) || 0;
       await amc.save();
     } else {
       amc = await AMC.create({
@@ -199,7 +238,7 @@ router.post('/amc', protect, verifyAssetOwnership, async (req, res) => {
         provider,
         startDate,
         endDate,
-        cost
+        cost: Number(cost) || 0
       });
     }
     res.json(amc);

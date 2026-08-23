@@ -16,8 +16,12 @@ build/
 .vscode/
 .idea/
 
-# System logs
+# System logs & editor caches
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.uix/
+backend/uploads/*
+!backend/uploads/.gitkeep
+

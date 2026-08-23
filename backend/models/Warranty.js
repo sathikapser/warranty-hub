@@ -26,6 +26,29 @@ const warrantySchema = new mongoose.Schema({
   provider: {
     type: String,
     trim: true
+  },
+  policyNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  claimPhone: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  claimEmail: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  coverageTerms: {
+    type: String,
+    default: 'Standard manufacturer parts and labor warranty'
+  },
+  claimCount: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

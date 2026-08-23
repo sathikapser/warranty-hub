@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
 const { protect } = require('../middleware/auth');
+const { emitWorkspaceEvent, broadcastActivity } = require('../utils/socket');
 
 // @desc    Invite family member
 // @route   POST /api/family/invite
@@ -37,6 +39,24 @@ router.post('/invite', protect, async (req, res) => {
       await invitedUser.save();
     }
 
+    const workspaceId = owner._id;
+    emitWorkspaceEvent(workspaceId.toString(), 'member_invited', {
+      email,
+      name: name || email.split('@')[0],
+      role: role || 'member',
+      invitedBy: req.user.name
+    });
+
+    const activity = await ActivityLog.create({
+      workspaceId,
+      userId: req.user._id,
+      userName: req.user.name,
+      action: 'member_joined',
+      title: `Invited Member: ${name || email}`,
+      details: `Assigned role: ${(role || 'member').toUpperCase()}`
+    });
+    broadcastActivity(workspaceId.toString(), activity);
+
     res.json({ message: `Successfully invited ${email} to workspace.`, workspace: owner.familyMembers });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -60,7 +80,7 @@ router.get('/members', protect, async (req, res) => {
         email: owner.email,
         role: 'owner'
       },
-      invitedMembers: owner.familyMembers, // lists all (including pending registered)
+      invitedMembers: owner.familyMembers,
       registeredMembers: registeredMembers
     });
   } catch (error) {
@@ -78,16 +98,19 @@ router.delete('/remove/:email', protect, async (req, res) => {
     const ownerId = req.user.familyWorkspaceOwnerId || req.user._id;
     const owner = await User.findById(ownerId);
 
-    // Remove from array
     owner.familyMembers = owner.familyMembers.filter(m => m.email !== emailToRemove);
     await owner.save();
 
-    // Reset user profile linking if registered
     const memberUser = await User.findOne({ email: emailToRemove, familyWorkspaceOwnerId: ownerId });
     if (memberUser) {
       memberUser.familyWorkspaceOwnerId = null;
       await memberUser.save();
     }
+
+    emitWorkspaceEvent(ownerId.toString(), 'member_removed', {
+      email: emailToRemove,
+      removedBy: req.user.name
+    });
 
     res.json({ message: 'Family member removed from workspace' });
   } catch (error) {

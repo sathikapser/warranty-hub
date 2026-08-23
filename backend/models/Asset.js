@@ -43,6 +43,29 @@ const assetSchema = new mongoose.Schema({
     lowercase: true,
     trim: true,
     default: null
+  },
+  sellerOrStore: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  warrantyDurationMonths: {
+    type: Number,
+    default: 12
+  },
+  roomOrLocation: {
+    type: String,
+    trim: true,
+    default: 'Main Household'
+  },
+  condition: {
+    type: String,
+    enum: ['excellent', 'good', 'fair', 'needs_repair', 'damaged'],
+    default: 'good'
+  },
+  notes: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
